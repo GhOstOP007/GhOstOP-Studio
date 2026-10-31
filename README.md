@@ -9,6 +9,7 @@
 
 [**Try the Web Demo**](https://ghostop-studio-trip-picsvid-org.netlify.app) · [**Report an Issue**](../../issues)
 
+[![Download](https://img.shields.io/badge/Download-Windows_Installer-00C896?style=for-the-badge&logo=windows)](https://github.com/GhOstOP007/GhOstOP-Studio/releases)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 ![Electron](https://img.shields.io/badge/Electron-Desktop-47848F?style=flat-square&logo=electron&logoColor=white)
 ![Transformers.js](https://img.shields.io/badge/AI-Transformers.js-orange?style=flat-square)
