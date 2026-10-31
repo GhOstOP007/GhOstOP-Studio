@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GhOstOP studio — Sort my folder</title>
+<script src="./node_modules/jszip/dist/jszip.min.js" defer></script>
+<script src="./node_modules/exifr/dist/lite.umd.js" defer></script>
+<style>
+:root{color-scheme:dark;--bg:#0b0a16;--ink:#ecebff;--pk:#8cf5d0;--mut:#9b99c4;--card:rgba(24,21,46,.72);--ln:rgba(140,245,208,.3);--dk:rgba(201,198,242,.5);--b1:#2c1b66;--b2:#0d4a46;--sh:0 12px 44px rgba(0,0,0,.5);--sl:rgba(150,150,220,.16);--hi:rgba(140,245,208,.14);--glow:rgba(140,245,208,.35);--gh1:#f4f3ff;--gh2:#b9b4ff;--eye:#14122b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:light){:root:not([data-theme=dark]){color-scheme:light;--bg:#f3f2ff;--ink:#14122b;--pk:#5b3fd6;--mut:#6a6893;--card:rgba(255,255,255,.78);--ln:rgba(91,63,214,.28);--dk:#1d1a3d;--b1:#d6cdff;--b2:#c8f3e6;--sh:0 12px 44px rgba(91,63,214,.14);--sl:rgba(91,63,214,.14);--hi:rgba(91,63,214,.1);--glow:rgba(91,63,214,.28);--gh1:#fff;--gh2:#d8d3ff;--eye:#14122b}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:500 14px/1.3 "Bricolage Grotesque",Inter,system-ui,sans-serif;overflow-x:hidden}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
+.bg i{position:absolute;border-radius:50%;filter:blur(70px);animation:fl 16s ease-in-out infinite alternate}
+.bg i:nth-child(1){width:46vw;height:40vh;left:-10vw;top:-6vh;background:var(--b1)}
+.bg i:nth-child(2){width:44vw;height:46vh;right:-8vw;bottom:-10vh;background:var(--b1);animation-delay:-6s}
+.bg i:nth-child(3){width:30vw;height:30vh;left:36vw;top:46vh;background:var(--b2);animation-delay:-3s}
+@keyframes fl{to{transform:translate(4vw,3vh) scale(1.12)}}
+header{display:flex;align-items:center;gap:16px;padding:18px 24px 0}
+.who{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.av{width:50px;height:50px;border-radius:50%;flex:none;border:2px solid var(--pk);overflow:hidden;box-shadow:0 0 18px var(--glow)}
+.by{font-size:12px;font-weight:600}.by span{color:var(--pk);font-weight:500}
+h1{margin:0;font-size:clamp(22px,3vw,30px);font-weight:800;letter-spacing:-.03em;line-height:1.1}
+h1 em,.lab,.cap,.big em{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-weight:400;color:var(--pk)}
+h1 em{font-size:1.2em;letter-spacing:-.01em}
+.ctl{display:flex;align-items:center;gap:10px}
+.pill{display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:99px;background:var(--card);font-size:13px;color:var(--mut);box-shadow:var(--sh);max-width:min(40vw,360px)}
+.pill b{width:7px;height:7px;border-radius:50%;background:var(--pk);flex:none}
+.pill.run b{animation:pu 1s infinite}.pill.ok b{background:var(--pk);box-shadow:0 0 10px var(--pk)}
+@keyframes pu{50%{transform:scale(1.7);opacity:.5}}
+#msg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .2s}
+.sort{display:flex;align-items:center;gap:8px;padding:6px 18px 6px 8px;border:0;border-radius:99px;background:var(--card);color:var(--ink);font:800 15px "Bricolage Grotesque",sans-serif;cursor:pointer;box-shadow:var(--sh);transition:transform .2s;white-space:nowrap}
+.sort:hover:not(:disabled){transform:translateY(-1px) scale(1.03)}
+.sort:disabled{cursor:default;opacity:.55}
+.sort svg{width:34px;height:34px}
+.sort.alt[aria-pressed=true]{color:var(--pk)}
+.sort svg{color:var(--pk)}
+.sort.cta{background:var(--pk);color:var(--bg);padding:12px 20px;font-weight:700;font-size:14px;box-shadow:0 0 28px var(--glow);animation:cta 2.4s ease-in-out infinite}
+.sort.cta:hover{transform:translateY(-1px) scale(1.03)}
+@keyframes cta{50%{box-shadow:0 0 44px var(--pk)}}
+.btn.p{background:var(--pk);border-color:var(--pk);color:var(--bg)}
+.sort.alt{padding:11px 16px;font-weight:600;font-size:13px}.sort.alt svg{width:15px;height:15px}
+:focus-visible{outline:2px solid var(--pk);outline-offset:3px}
+.stats{margin:16px 24px 0;display:grid;grid-template-columns:repeat(5,1fr);border-radius:24px;background:var(--card);box-shadow:var(--sh);overflow:hidden;backdrop-filter:blur(8px)}
+.st{padding:16px 18px 14px;border-left:1px solid var(--sl)}
+.st:first-child{border:0;background:linear-gradient(100deg,var(--hi),transparent)}
+.lb{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+.lb i{width:6px;height:6px;border-radius:50%}
+.st output{display:block;font-size:32px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:2px}
+.st:first-child output{color:var(--pk)}
+main{flex:1;display:grid;grid-template-columns:minmax(260px,29%) 1fr minmax(260px,29%);gap:22px;padding:16px 24px 24px;min-height:560px}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.lab{display:flex;align-items:center;gap:8px;font-size:23px}
+.lab i{width:8px;height:8px;border-radius:50%;background:var(--pk);box-shadow:0 0 8px var(--pk)}
+.col.v .lab i{background:var(--ink)}
+.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.col.v .grid{grid-auto-rows:minmax(150px,1fr);align-content:stretch}
+.card{border-radius:16px;border:1.5px solid var(--ln);background:var(--card);padding:10px 12px;min-height:80px;opacity:0;transform:translateY(12px) scale(.97);filter:blur(6px);transition:opacity .5s,transform .5s,filter .5s}
+.col.v .card{border-color:var(--dk)}
+.card.on{opacity:1;transform:none;filter:none}
+.ch{display:flex;align-items:center;gap:7px;font-size:12.5px}
+.ch b{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:600}
+.ch svg{width:14px;height:14px;flex:none}
+.ch .n{font-style:normal;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums}
+.card.lc{min-height:112px}
+main.loc .col.v .lab{visibility:hidden}
+main.loc .col.v .grid{grid-auto-rows:auto;align-content:start}
+main.loc .col.v .card{border-color:var(--ln)}
+.stage{position:relative;min-height:440px}
+#flower{position:absolute;left:50%;top:47%;width:min(300px,80%);aspect-ratio:1;translate:-50% -50%;opacity:.55;transition:opacity 1s,scale 1.2s cubic-bezier(.2,.8,.2,1)}
+#flower.bright{opacity:1;scale:.62}
+#flower svg{width:100%;height:100%;overflow:visible}
+#flower svg{filter:drop-shadow(0 0 26px var(--glow))}
+.gbody{animation:bob 4.5s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-10px)}}
+.gsh{transform-box:fill-box;transform-origin:center;animation:shd 4.5s ease-in-out infinite}
+@keyframes shd{50%{transform:scale(.8);opacity:.12}}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 5.5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.happy{display:none}#flower.bright .happy{display:block}#flower.bright .eyes{display:none}
+.cap{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:18px;transition:opacity .2s}
+.tray{position:absolute;left:50%;bottom:34px;translate:-50% 0;width:min(100%,330px)}
+.drop{position:fixed;inset:12px;z-index:25;border:2px dashed var(--pk);border-radius:28px;background:color-mix(in srgb,var(--bg) 70%,transparent);display:grid;place-content:center;font:italic 400 30px "Instrument Serif",Georgia,serif;color:var(--pk);opacity:0;pointer-events:none;transition:opacity .2s}
+.drop.on{opacity:1}
+#cv{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:20}
+.end{position:fixed;inset:0;z-index:30;display:grid;place-content:center;justify-items:center;gap:26px;text-align:center;background:color-mix(in srgb,var(--bg) 55%,transparent);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);opacity:0;visibility:hidden;transition:opacity .7s,visibility .7s;padding:24px}
+.end.on{opacity:1;visibility:visible}
+.big{margin:0;font-size:clamp(34px,7vw,64px);font-weight:800;letter-spacing:-.04em;line-height:1.1;min-height:2.3em}
+.big em{font-size:1.14em;letter-spacing:-.02em}
+.caret{display:inline-block;width:3px;height:.85em;background:var(--pk);margin-left:3px;vertical-align:-.05em;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.acts{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .6s}
+.acts.on{opacity:1;pointer-events:auto}
+.sub{max-width:44ch;color:var(--mut);font-size:13px;margin:-8px 0 0;opacity:0;transition:opacity .6s}.sub.on{opacity:1}
+.btn{padding:12px 22px;border-radius:99px;border:1.5px solid var(--dk);background:var(--ink);color:var(--bg);font:700 14px "Bricolage Grotesque",sans-serif;cursor:pointer}
+.btn.g{background:transparent;color:var(--ink)}
+@media(max-width:860px){
+ header{flex-wrap:wrap}.ctl{width:100%;flex-wrap:wrap}.pill{max-width:none;flex:1;min-width:0}
+ .stats{grid-template-columns:repeat(2,1fr)}.st{border-top:1px solid var(--sl)}.st:last-child{grid-column:1/-1}
+ main{grid-template-columns:1fr}.stage{min-height:380px}}
+@media(prefers-reduced-motion:reduce){.gbody,.gsh,.eye,.bg i,.cta{animation:none}}
+
+/* Native desktop chrome */
+#nativebar{height:38px;display:flex;align-items:center;justify-content:space-between;padding-left:14px;background:rgba(12,10,25,.96);border-bottom:1px solid var(--sl);-webkit-app-region:drag;user-select:none;flex:none}
+#nativebar .brand{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--mut)}
+#nativebar .window-actions{display:flex;height:38px;-webkit-app-region:no-drag}
+#nativebar button{width:46px;border:0;background:transparent;color:var(--ink);font-size:15px;cursor:pointer}
+#nativebar button:hover{background:rgba(255,255,255,.1)}#nativebar #win-close:hover{background:#c42b1c;color:white}
+body{min-height:calc(100vh - 38px)}
+</style>
+</head>
+<body>
+<div id="nativebar"><span class="brand">GhOstOP STUDIO</span><div class="window-actions"><button id="win-min" title="Minimise">&#x2212;</button><button id="win-max" title="Maximise">&#x25A1;</button><button id="win-close" title="Close">&#x2715;</button></div></div>
+<div class="bg"><i></i><i></i><i></i></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="fl" viewBox="0 0 64 64"><path d="M12 56V28C12 15 21 6 32 6s20 9 20 22v28l-6.7-6-6.6 6-6.7-6-6.7 6-6.6-6z" fill="currentColor"/><circle cx="24" cy="28" r="3.6" fill="var(--bg)"/><circle cx="40" cy="28" r="3.6" fill="var(--bg)"/><ellipse cx="32" cy="38" rx="3" ry="4" fill="var(--bg)"/></symbol></defs></svg>
+
+<header>
+  <div class="who">
+    <svg class="av" viewBox="0 0 50 50" role="img" aria-label="GhOstOP studio avatar"><rect width="50" height="50" fill="#14122b"/><use href="#fl" x="9" y="8" width="32" height="32" style="color:#8cf5d0"/></svg>
+    <div><div class="by">GhOstOP studio <span>· AI editing</span></div><h1>Sorting my <em id="fn">Downloads</em> folder</h1></div>
+  </div>
+  <div class="ctl">
+    <div class="pill" id="pill" role="status" aria-live="polite"><b></b><span id="msg">Choose a folder to begin</span></div>
+    <button class="sort alt" id="pick"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z"/></svg>Choose folder</button>
+    <button class="sort alt" id="mode" title="Sort by what’s in the photo, or by where it was taken (GPS metadata)">Sort by: Content</button>
+    <button class="sort alt" id="geo" hidden title="Online: send GPS coordinates to OpenStreetMap for place names. Offline: group by coordinates only.">Place names: online</button>
+    <button class="sort alt" id="model-manager" title="Download or remove the local AI model">AI model</button>
+    <button class="sort alt" id="ai" aria-pressed="true" title="Use a local AI model (CLIP) to recognise what’s in each photo">AI sort: on</button>
+    <button class="sort cta" id="act" hidden>Move files into folders</button>
+    <button class="sort" id="sort" disabled><svg aria-hidden="true"><use href="#fl"/></svg><span id="sl">Sort</span></button>
+  </div>
+</header>
+
+<section class="stats" aria-label="Progress">
+  <div class="st"><span class="lb">Total files</span><output id="s0">0</output></div>
+  <div class="st"><span class="lb"><i style="background:var(--ink)"></i>Videos</span><output id="s1">0</output></div>
+  <div class="st"><span class="lb"><i style="background:var(--pk)"></i>Photos</span><output id="s2">0</output></div>
+  <div class="st"><span class="lb">Folders created</span><output id="s3">0</output></div>
+  <div class="st"><span class="lb">Duplicates found</span><output id="s4">0</output></div>
+</section>
+
+<main>
+  <div class="col"><div class="lab"><i></i><span id="plab">Photos</span></div><div class="grid" id="pg"></div></div>
+  <div class="stage" id="stage">
+    <div id="flower"><svg viewBox="0 0 200 230" aria-hidden="true"><defs><linearGradient id="gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gh1)"/><stop offset="1" style="stop-color:var(--gh2)"/></linearGradient></defs><ellipse class="gsh" cx="100" cy="216" rx="46" ry="7" fill="var(--pk)" opacity=".28"/><g class="gbody"><path d="M30 196V92C30 48 62 14 100 14s70 34 70 78v104l-18-16-18 18-17-17-17 17-18-18-18 16-17-16z" fill="url(#gg)" stroke="var(--pk)" stroke-width="3" stroke-linejoin="round"/><circle cx="60" cy="120" r="10" fill="var(--pk)" opacity=".2"/><circle cx="140" cy="120" r="10" fill="var(--pk)" opacity=".2"/><g class="eyes"><ellipse class="eye" cx="76" cy="92" rx="9" ry="13" fill="var(--eye)"/><ellipse class="eye" cx="124" cy="92" rx="9" ry="13" fill="var(--eye)"/></g><g class="happy" fill="none" stroke="var(--eye)" stroke-width="5" stroke-linecap="round"><path d="M64 98q12-18 24 0"/><path d="M112 98q12-18 24 0"/></g><ellipse cx="100" cy="128" rx="8" ry="11" fill="var(--eye)"/></g></svg></div>
+    <div class="card tray" id="tray"><div class="ch"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.6 9h6.8L12 4"/></svg><b>Duplicates → review</b><i class="n">0</i></div></div>
+    <div class="cap" id="cap">choose a folder to sort</div>
+  </div>
+  <div class="col v"><div class="lab"><i></i>Videos</div><div class="grid" id="vg"></div></div>
+</main>
+
+<canvas id="cv" aria-hidden="true"></canvas>
+<div class="drop" id="drop">Drop a folder to sort it</div>
+
+
+<div class="end" id="end" role="dialog" aria-label="Summary">
+  <h2 class="big" id="big"></h2>
+  <p class="sub" id="sub"></p>
+  <div class="acts" id="acts">
+    <button class="btn p" id="apply">Move files into folders</button>
+    <button class="btn p" id="zip">Download sorted ZIP</button>
+    <button class="btn p" id="undo">Undo move</button>
+    <button class="btn g" id="again">Sort again</button>
+    <button class="btn g" id="back">Back to folders</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s),RM=matchMedia('(prefers-reduced-motion: reduce)').matches,K=RM?.35:1;
+const rnd=Math.random,clamp=(v,a,b)=>Math.min(b,Math.max(a,v)),fmt=n=>n.toLocaleString('en-US');
+const IMG=/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?)$/i,VID=/\.(mp4|mov|m4v|webm|mkv|avi|3gp)$/i,MAXF=6000;
+
+/* flower */
+
+/* folders */
+// Content folders are created from detected content, not a fixed list.
+const PH=[],VI=[];
+const LABELS={selfie:'Selfies & Portraits',outfit:'Fashion & Outfits',food:'Food & Meals',drinks:'Coffee & Drinks',travel:'Travel & Sightseeing',nature:'Nature & Landscapes',animals:'Animals & Pets',flowers:'Flowers & Plants',beach:'Beaches & Oceans',mountains:'Mountains & Hiking',city:'Cities & Streets',architecture:'Buildings & Architecture',vehicles:'Cars & Bikes',sport:'Sports & Fitness',music:'Music & Instruments',work:'Work & Desks',text:'Documents & Text',shot:'Screenshots',aesth:'Interiors & Decor',events:'Parties & Events',family:'People & Groups',art:'Art & Illustrations',shopping:'Products & Shopping',tech:'Gadgets & Technology',night:'Night & Lights',other:'Other Photos',video:'Other Videos'};
+let folders=[],mode='content',geoOn=true,locInfo='';
+try{mode=localStorage.getItem('ys-mode')==='loc'?'loc':'content';geoOn=localStorage.getItem('ys-geo')!=='offline'}catch{}
+const FIC='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z"/></svg>';
+function build(list,col,vid){list.forEach(([name,cat])=>{const el=document.createElement('div');el.className='card';el.innerHTML=`<div class="ch">${FIC}<b>${name}</b><i class="n">0</i></div>`;col.append(el);folders.push({name,cat,vid,el,nEl:el.querySelector('.n')})})}
+const dupF={name:'Duplicates',dup:true,el:$('#tray'),nEl:$('#tray .n')};
+const safe=n=>n.replace(/[\\/:*?"<>|]+/g,'-').trim()||'Unnamed';
+function addLoc(name,side='#pg'){const el=document.createElement('div');el.className='card lc';el.innerHTML=`<div class="ch">${FIC}<b>${name}</b><i class="n">0</i></div>`;$(side).append(el);
+ const f={name,dir:safe(name),loc:1,vid:false,el,nEl:el.querySelector('.n'),got:0,asg:0,shown:0,slots:[]};folders.push(f);return f}
+function mkFolders(){$('#pg').innerHTML='';$('#vg').innerHTML='';folders=[];
+ if(mode==='content'){/* categories are created only when detected */}
+ Object.assign(dupF,{got:0,asg:0,shown:0,slots:[]});dupF.nEl.textContent=0;dupF.el.classList.remove('on');folders.push(dupF)}
+const destPath=t=>t.f.dup?['_Duplicates']:mode==='loc'?[t.f.dir]:[t.vid?'Videos':'Photos',safe(t.f.name)];
+function contentFolder(cat,vid){const name=LABELS[cat]||LABELS[vid?'video':'other'];let f=folders.find(f=>!f.dup&&!f.loc&&f.vid===vid&&f.cat===cat);if(f)return f;const el=document.createElement('div');el.className='card';const header=document.createElement('div');header.className='ch';header.innerHTML=FIC;const title=document.createElement('b');title.textContent=name;const count=document.createElement('i');count.className='n';count.textContent='0';header.append(title,count);el.append(header);$(vid?'#vg':'#pg').append(el);f={name,cat,vid,el,nEl:count,got:0,asg:0,shown:0,slots:[]};folders.push(f);return f}
+
+/* ui refs + stats */
+const S={t:0,v:0,p:0,f:0,d:0},E={t:$('#s0'),v:$('#s1'),p:$('#s2'),f:$('#s3'),d:$('#s4')},shown={};
+const paintStats=()=>{for(const k in S)if(shown[k]!==S[k]){shown[k]=S[k];E[k].textContent=fmt(S[k])}};
+const msg=$('#msg'),capEl=$('#cap'),pill=$('#pill'),btn=$('#sort'),sl=$('#sl'),fl=$('#flower'),end=$('#end'),big=$('#big'),acts=$('#acts'),sub=$('#sub'),stage=$('#stage'),inp=$('#inp');
+const swap=(el,txt)=>{el.style.opacity=0;setTimeout(()=>{el.textContent=txt;el.style.opacity=1},180)};
+
+/* canvas */
+const cv=$('#cv'),g=cv.getContext('2d');let D=1;
+function size(){D=Math.min(devicePixelRatio||1,2);cv.width=innerWidth*D;cv.height=innerHeight*D}
+addEventListener('resize',size);size();
+
+/* state */
+let phase='idle',T0=0,tiles=[],N=0,sp=0,landed=0,ovl=0,tok=0,doneAt=0,TS=0,allIn=0,inAt=0,skipped=0;
+let entries=[],dirH=null,log=[];
+const busy=()=>['collect','geo','sort','apply'].includes(phase);
+const syncBtn=()=>{syncAct();btn.disabled=busy()||!entries.length;$('#pick').disabled=busy();$('#ai').disabled=busy();$('#mode').disabled=busy();$('#geo').disabled=busy()};
+
+/* ---------- native desktop folder selection ---------- */
+async function listDir(folderPath){const rows=await window.ghostop.listMedia(folderPath);return rows.map(x=>({...x,getFile:async()=>new File([await window.ghostop.readFile(x.path)],x.name,{lastModified:x.lastModified})}))}
+// Lazy file view: metadata, hashing and GPS never read an entire video into memory.
+function lazyFile(e){return {name:e.name,size:e.size,lastModified:e.lastModified,slice(start=0,end=e.size){const offset=Math.max(0,Math.min(e.size,start));const length=Math.max(0,Math.min(e.size,end)-offset);return {arrayBuffer:()=>window.ghostop.readRange(e.path,offset,length)}}}}
+async function lightMetadata(e,vid){
+ const f=lazyFile(e);
+ if(vid)return meta(f,true);
+ // EXIF is normally near the start of JPEG/HEIC files. Bound reads to 4 MiB.
+ const bytes=await window.ghostop.readRange(e.path,0,Math.min(e.size,4*1024*1024));
+ const blob=new Blob([bytes],{type:/\.png$/i.test(e.name)?'image/png':'image/jpeg'});
+ const result=await meta(blob,false);return result;
+}
+function adopt(list,name,folderPath){
+ reset();dirH=folderPath;
+ const over=list.length>MAXF;entries=list.slice(0,MAXF);
+ $('#fn').textContent=name;
+ swap(msg,entries.length?`Found ${fmt(entries.length)} photos & videos${over?' (first '+fmt(MAXF)+')':''}`:'No photos or videos in this folder');
+ swap(capEl,entries.length?'a total mess':'choose a folder to sort');syncBtn();
+}
+async function loadFolder(){
+ if(busy())return;
+ try{const selected=await window.ghostop.selectFolder();if(!selected)return;
+  const list=await listDir(selected.path);adopt(list,selected.name,selected.path);
+ }catch(e){console.error(e);swap(msg,'Couldn’t read that folder')}
+}
+$('#pick').onclick=loadFolder;
+const dz=$('#drop');
+addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('on')});
+addEventListener('dragleave',e=>{if(!e.relatedTarget)dz.classList.remove('on')});
+addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('on');swap(msg,'Use “Choose folder” to select a folder safely')});
+
+/* ---------- local analysis ---------- */
+const rr=(g,x,y,w,h,r)=>{g.beginPath();g.roundRect(x,y,w,h,r)};
+const cir=(g,x,y,r,c)=>{g.fillStyle=c;g.beginPath();g.arc(x,y,r,0,7);g.fill()};
+function mkSprite(bm,vid,name){
+ const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');
+ rr(x,1,1,62,62,15);x.fillStyle='#fff';x.fill();x.save();rr(x,4,4,56,56,12);x.clip();
+ if(bm){const s=Math.max(56/bm.width,56/bm.height),w=bm.width*s,h=bm.height*s;x.drawImage(bm,32-w/2,32-h/2,w,h)}
+ else{x.fillStyle='#dcdaf3';x.fillRect(0,0,64,64);x.fillStyle='#5b3fd6';x.font='700 14px "Bricolage Grotesque",sans-serif';x.textAlign='center';x.fillText((name.split('.').pop()||'').toUpperCase().slice(0,4),32,37)}
+ x.restore();rr(x,1,1,62,62,15);x.lineWidth=2.2;x.strokeStyle='rgba(8,6,24,.92)';x.stroke();
+ if(vid){cir(x,50,50,9,'rgba(20,10,16,.78)');x.fillStyle='#fff';x.beginPath();x.moveTo(47,45);x.lineTo(47,55);x.lineTo(55,50);x.fill()}
+ return c}
+const c32=document.createElement('canvas');c32.width=c32.height=32;const x32=c32.getContext('2d',{willReadFrequently:true});
+const c9=document.createElement('canvas');c9.width=9;c9.height=8;const x9=c9.getContext('2d',{willReadFrequently:true});
+function feats(bm,w,h,name){
+ const a={w:w||1,h:h||1,name,skin:0,green:0,blue:0,blueTop:0,warm:0,dark:0,light:0,dl:0,sat:0,avgL:0,uni:0,hash:null};
+ if(!bm)return a;
+ x32.drawImage(bm,0,0,32,32);const d=x32.getImageData(0,0,32,32).data,q=new Set();let sk=0,cn=0,bt=0;
+ for(let i=0;i<1024;i++){const r=d[i*4],gg=d[i*4+1],b=d[i*4+2],mx=Math.max(r,gg,b),mn=Math.min(r,gg,b),l=(mx+mn)/510,s=mx?(mx-mn)/mx:0,px=i%32,py=i>>5;
+  q.add((r>>4)<<8|(gg>>4)<<4|(b>>4));a.sat+=s;a.avgL+=l;
+  if(l<.22)a.dark++;if(l>.8)a.light++;
+  if(gg>r*1.04&&gg>b*1.04)a.green++;
+  if(b>r*1.1&&b>gg*.95&&s>.15){a.blue++;if(py<14)bt++}
+  if(r>gg&&gg>b&&s>.45&&l>.25&&l<.8)a.warm++;
+  if(px>7&&px<24&&py>4&&py<27){cn++;if(r>95&&gg>40&&b>20&&r>gg&&r>b&&mx-mn>15&&r-gg>8&&r-gg<90)sk++}}
+ a.skin=sk/cn;a.green/=1024;a.blue/=1024;a.blueTop=bt/448;a.warm/=1024;a.dl=(a.dark+a.light)/1024;a.dark/=1024;a.light/=1024;a.sat/=1024;a.avgL/=1024;a.uni=q.size/1024;
+ x9.drawImage(bm,0,0,9,8);const e=x9.getImageData(0,0,9,8).data;let h1=0,h2=0,k=0;
+ for(let y=0;y<8;y++)for(let x=0;x<8;x++){const i=(y*9+x)*4,j=i+4,gi=e[i]*.3+e[i+1]*.6+e[i+2]*.1,gj=e[j]*.3+e[j+1]*.6+e[j+2]*.1,bit=gi>gj?1:0;if(k<32)h1|=bit<<k;else h2|=bit<<(k-32);k++}
+ a.hash=[h1,h2];return a}
+function classify(a,vid){
+ const nm=a.name||'', ar=a.h?a.w/a.h:1;
+ // Filename hints are useful when video frames are intentionally not decoded.
+ const rules=[
+  [/screen[ _-]?(shot|record)|screenshot|capture[_ -]?screen/i,'shot'],
+  [/invoice|receipt|document|scan|pdf|notes|whiteboard/i,'text'],
+  [/coffee|cafe|latte|tea|espresso|juice|cocktail|drink/i,'drinks'],
+  [/food|meal|lunch|dinner|breakfast|pizza|burger|restaurant/i,'food'],
+  [/dog|cat|puppy|kitten|bird|pet|wildlife/i,'animals'],
+  [/flower|rose|garden|plant|bouquet/i,'flowers'],
+  [/beach|ocean|sea|coast|surf/i,'beach'],
+  [/mountain|trek|hike|hill|snow|peak/i,'mountains'],
+  [/car|bike|motorcycle|vehicle|roadtrip/i,'vehicles'],
+  [/birthday|wedding|party|festival|celebration/i,'events'],
+  [/concert|guitar|piano|music|song|spotify/i,'music'],
+  [/gym|workout|run|yoga|cricket|football|sport/i,'sport'],
+  [/selfie|portrait|face/i,'selfie'],
+  [/outfit|fashion|dress|clothes|mirror/i,'outfit'],
+  [/laptop|office|meeting|code|desk|work/i,'work'],
+  [/city|street|market|urban/i,'city'],
+  [/temple|church|mosque|monument|building|architecture/i,'architecture'],
+  [/phone|computer|gadget|camera|keyboard|tech/i,'tech'],
+  [/painting|drawing|art|illustration/i,'art']];
+ for(const [rx,cat] of rules)if(rx.test(nm))return cat;
+ if(vid)return 'video'; // Don't guess that every unrecognized video is a selfie.
+ if(a.uni<.07&&a.dl>.8)return 'text';
+ if(a.uni<.12&&a.light>.5)return 'shot';
+ if(a.green+a.blue>.5&&a.skin<.08)return a.blueTop>.3?'beach':'nature';
+ if(a.blueTop>.35&&a.skin<.1)return 'beach';
+ if(a.warm>.35&&a.skin<.2&&ar<1.4)return 'food';
+ if(a.skin>.16&&ar<1.25)return 'selfie';
+ if(a.skin>.04&&ar<.85)return 'outfit';
+ return 'other'; // Avoid confident, incorrect categories from weak color heuristics.
+}
+const pc=n=>{n=n-((n>>>1)&0x55555555);n=(n&0x33333333)+((n>>>2)&0x33333333);return(((n+(n>>>4))&0xF0F0F0F)*0x1010101)>>>24};
+async function sig(f){let h=2166136261>>>0;const s=f.size,part=async o=>{const u=new Uint8Array(await f.slice(o,o+65536).arrayBuffer());for(let i=0;i<u.length;i+=5)h=Math.imul(h^u[i],16777619)>>>0};await part(0);if(s>131072)await part(s-65536);if(s>400000)await part((s/2)|0);return s+':'+h}
+const imgBm=f=>createImageBitmap(f,{imageOrientation:'from-image'}).then(bm=>({bm,w:bm.width,h:bm.height}),()=>null);
+const vidBm=f=>new Promise(res=>{const v=document.createElement('video');v.muted=true;v.preload='metadata';const u=URL.createObjectURL(f);
+ const fin=r=>{clearTimeout(to);URL.revokeObjectURL(u);v.removeAttribute('src');res(r)},to=setTimeout(()=>fin(null),6000);
+ v.onloadedmetadata=()=>{v.currentTime=Math.min(1,(v.duration||2)/3)};
+ v.onseeked=async()=>{try{fin({bm:await createImageBitmap(v),w:v.videoWidth,h:v.videoHeight})}catch{fin(null)}};
+ v.onerror=()=>fin(null);v.src=u});
+async function analyze(e){
+ const vid=VID.test(e.name);
+ if(mode==='loc'||vid){
+   const file=lazyFile(e),m=mode==='loc'?await lightMetadata(e,vid):null;
+   const fe=feats(null,0,0,e.name),cat=classify(fe,vid);
+   const t={e,file,vid,fe,w:fe.w,h:fe.h,sp:mkSprite(null,vid,e.name),cat,sig:await sig(file),when:m?m.when:e.lastModified,gps:m?m.gps:null};
+   const a=rnd()*6.283,d=2.4+rnd()*2.6,pa=rnd()*6.283,rr_=Math.sqrt(rnd());
+   Object.assign(t,{sx:Math.cos(a)*d,sy:Math.sin(a)*d,px:Math.cos(pa)*rr_,py:Math.sin(pa)*rr_,rot:(rnd()-.5)*2.4,ts:(performance.now()-T0)/1000,du:(.9+rnd()*.6)*K,lau:0,land:0});
+   tiles.push(t);S.t=tiles.length;return;
+ }
+ const file=await e.getFile(),r=await imgBm(file),bm=r&&r.bm;
+ const fe=feats(bm,r&&r.w,r&&r.h,file.name);let cat=classify(fe,vid);
+ if(mode==='content'&&ai.ready&&aiOn&&bm&&!/screen ?shot|screenshot|screen[ _]recording/i.test(file.name)){const q=await aiCls(bm,vid);if(q&&q.p>.13){cat=q.cat;aiHits++}}
+ const t={e,file,vid,fe,w:fe.w,h:fe.h,sp:mkSprite(bm,vid,file.name),cat,sig:await sig(file)};
+ if(bm&&bm.close)bm.close();
+ const a=rnd()*6.283,d=2.4+rnd()*2.6,pa=rnd()*6.283,rr_=Math.sqrt(rnd());
+ Object.assign(t,{sx:Math.cos(a)*d,sy:Math.sin(a)*d,px:Math.cos(pa)*rr_,py:Math.sin(pa)*rr_,rot:(rnd()-.5)*2.4,ts:(performance.now()-T0)/1000,du:(.9+rnd()*.6)*K,lau:0,land:0});
+ if(mode==='loc'){const m=await meta(file,vid);t.gps=m.gps;t.when=m.when}else t.when=file.lastModified;
+ tiles.push(t);S.t=tiles.length;
+}
+
+/* ---------- local AI (CLIP ViT-B/32 via Transformers.js, runs in your browser) ---------- */
+const AI_URL='./node_modules/@huggingface/transformers/dist/transformers.min.js',AI_ID='Xenova/clip-vit-base-patch32';
+const AI_PROMPTS={
+ selfie:['a close-up selfie photograph of one person','a portrait photograph of a human face'],
+ outfit:['a fashion outfit photograph showing clothing','a person posing in a mirror wearing an outfit'],
+ food:['a plate of cooked food at a restaurant','a meal served on a dining table'],
+ drinks:['a cup of coffee or tea at a cafe','a glass of juice or a beverage'],
+ travel:['a tourist posing at a famous destination','a holiday travel photograph of sightseeing'],
+ nature:['a landscape photograph of forests and green trees','a natural landscape with a river and trees'],
+ animals:['a photograph of a dog or cat','a photograph of wildlife or birds'],
+ flowers:['a close-up photograph of colorful flowers','a garden with plants and flowers'],
+ beach:['a beach with sand and ocean waves','a seascape with blue water'],
+ mountains:['a mountain landscape with snowy peaks','a hiking trail in the hills'],
+ city:['a city street with buildings and pedestrians','an urban skyline with skyscrapers'],
+ architecture:['a historic monument or temple','an architectural photograph of a building'],
+ vehicles:['a photograph of a motorcycle or bike','a car or vehicle parked on a road'],
+ sport:['people playing sports on a field','a person exercising in a gym'],
+ music:['a musical instrument such as a guitar or piano','a concert with musicians performing'],
+ work:['a laptop and keyboard on an office desk','a computer programming workstation'],
+ text:['a document page filled with printed text','a poster with text and writing'],
+ shot:['a screenshot of a mobile phone application','a computer screen screenshot'],
+ aesth:['a photograph of interior room decoration','a cozy living room with furniture'],
+ events:['a birthday party or celebration','a wedding or festive gathering'],
+ family:['a group photograph of friends or family','several people posing together for a photo'],
+ art:['a painting or illustration','a drawing or artwork'],
+ shopping:['a product photographed for sale','a shopping bag and products in a store'],
+ tech:['a smartphone or electronic gadget','a camera or computer electronics'],
+ night:['a night scene with colorful city lights','fireworks and lights in the dark']
+};
+const ai={ready:false};let aiOn=true,aiHits=0,aiLock=Promise.resolve();
+try{aiOn=localStorage.getItem('ys-ai')!=='0'}catch{}
+const setAiBtn=()=>{const b=$('#ai');b.textContent='AI sort: '+(aiOn?'on':'off');b.setAttribute('aria-pressed',aiOn)};
+setAiBtn();
+$('#ai').onclick=()=>{if(busy())return;aiOn=!aiOn;try{localStorage.setItem('ys-ai',aiOn?'1':'0')}catch{}setAiBtn()};
+async function ensureModel(){
+ const state=await window.ghostop.modelStatus();
+ if(state.ready)return true;
+ if(!confirm('AI photo sorting needs a one-time model download (up to about 3.6 GB). The model stays on your PC for offline use. Download now?'))return false;
+ const manager=$('#model-manager');manager.textContent='Cancel AI download';
+ const cancel=()=>window.ghostop.modelCancel();manager.onclick=cancel;
+ const unsubscribe=window.ghostop.onModelProgress(p=>{
+   if(p.total){const percent=Math.min(100,Math.floor(100*p.downloaded/p.total));msg.textContent=`Downloading AI model: ${percent}% (${(p.downloaded/1e9).toFixed(2)} / ${(p.total/1e9).toFixed(2)} GB)`;}
+   if(p.error)msg.textContent=p.error;
+ });
+ try{await window.ghostop.modelDownload();return true}
+ catch(e){alert('AI model download did not finish: '+e.message+'\nTry again when connected to the internet.');return false}
+ finally{unsubscribe();manager.textContent='AI model';manager.onclick=openModelManager}
+}
+async function openModelManager(){
+ const state=await window.ghostop.modelStatus();
+ if(state.downloading){await window.ghostop.modelCancel();return}
+ if(state.ready){if(confirm('AI model is installed and works offline. Delete downloaded model to free disk space?')){await window.ghostop.modelDelete();ai.ready=false;alert('Model deleted. You can download it again when needed.')}}
+ else if(confirm('AI model is not installed. Download it now for offline AI sorting?')){await ensureModel()}
+}
+$('#model-manager').onclick=openModelManager;
+async function loadAI(){
+ if(!await ensureModel())throw new Error('AI model not installed');
+ const m=await import(AI_URL),got={};
+ m.env.allowRemoteModels=false; m.env.allowLocalModels=true; m.env.localModelPath='ghostop://models/';
+ const cb=p=>{if(p.status==='progress'&&p.loaded){got[p.file]=p.loaded;msg.textContent=`Downloading AI model… ${Math.round(Object.values(got).reduce((a,b)=>a+b,0)/1e6)} MB`}};
+ const tries=navigator.gpu?[['webgpu','fp16'],['wasm','q8']]:[['wasm','q8']];let err,txt;
+ for(const [device,dtype] of tries){
+  try{msg.textContent='Loading AI model…';
+   ai.vis=await m.CLIPVisionModelWithProjection.from_pretrained(AI_ID,{device,dtype,progress_callback:cb});
+   txt=await m.CLIPTextModelWithProjection.from_pretrained(AI_ID,{device,dtype,progress_callback:cb});ai.dev=device;err=null;break}catch(e){err=e}}
+ if(err)throw err;
+ const tok=await m.AutoTokenizer.from_pretrained(AI_ID);ai.proc=await m.AutoProcessor.from_pretrained(AI_ID);ai.RawImage=m.RawImage;
+ const cats=Object.keys(AI_PROMPTS),flat=cats.flatMap(c=>AI_PROMPTS[c].map(p=>[c,p]));
+ const {text_embeds}=await txt(tok(flat.map(x=>x[1]),{padding:true,truncation:true})),rows=text_embeds.normalize().tolist(),cls={};
+ flat.forEach(([c],i)=>{const r=rows[i],a=cls[c]||(cls[c]=new Array(r.length).fill(0));r.forEach((x,j)=>a[j]+=x)});
+ const cl=cats.map(c=>{const a=cls[c],n=Math.hypot(...a);return{cat:c,e:a.map(x=>x/n)}});
+ ai.pc=cl;ai.ready=true;
+}
+const c224=document.createElement('canvas');c224.width=c224.height=224;const x224=c224.getContext('2d',{willReadFrequently:true});
+function aiCls(bm,vid){return aiLock=aiLock.then(async()=>{try{
+ const s=Math.max(224/bm.width,224/bm.height),w=bm.width*s,h=bm.height*s;x224.clearRect(0,0,224,224);x224.drawImage(bm,112-w/2,112-h/2,w,h);
+ const inp=await ai.proc(new ai.RawImage(x224.getImageData(0,0,224,224).data,224,224,4)),{image_embeds}=await ai.vis(inp),v=image_embeds.normalize().tolist()[0];
+ const set=ai.pc,lg=set.map(c=>100*c.e.reduce((a,x,i)=>a+x*v[i],0)),mx=Math.max(...lg),ex=lg.map(x=>Math.exp(x-mx)),sum=ex.reduce((a,b)=>a+b),k=ex.indexOf(Math.max(...ex));
+ return{cat:set[k].cat,p:ex[k]/sum}}catch{return null}})}
+
+/* ---------- photo metadata: GPS + capture time, then place names ---------- */
+const NOLOC='No GPS metadata';
+async function vidGps(f){const s=f.size,parts=[f.slice(0,Math.min(s,524288))];if(s>524288)parts.push(f.slice(Math.max(524288,s-3145728)));
+ for(const p of parts){const txt=new TextDecoder('latin1').decode(await p.arrayBuffer());
+  const m=/(?:\xA9xyz|ISO6709)[\s\S]{0,60}?([+-]\d{1,2}\.\d+)([+-]\d{1,3}\.\d+)/.exec(txt)||/([+-]\d{2}\.\d{3,})([+-]\d{3}\.\d{3,})(?:[+-]\d+(?:\.\d+)?)?\//.exec(txt);
+  if(m)return{latitude:+m[1],longitude:+m[2]}}return null}
+async function meta(file,vid){let gps=null,when=file.lastModified;
+ try{if(vid)gps=await vidGps(file);else{const x=window.exifr;gps=await x.gps(file);const d=await x.parse(file,['DateTimeOriginal','CreateDate']),dt=d&&(d.DateTimeOriginal||d.CreateDate);if(dt instanceof Date&&!isNaN(dt))when=+dt}}catch{}
+ if(!gps||!(Math.abs(gps.latitude)<=90&&Math.abs(gps.longitude)<=180&&(gps.latitude||gps.longitude)))gps=null;
+ return{gps,when}}
+const hav=(a,b,c,d)=>{const p=Math.PI/180,x=Math.sin((c-a)*p/2)**2+Math.cos(a*p)*Math.cos(c*p)*Math.sin((d-b)*p/2)**2;return 12742*Math.asin(Math.sqrt(x))};
+const coordName=(la,lo)=>`${Math.abs(la).toFixed(2)}°${la<0?'S':'N'}, ${Math.abs(lo).toFixed(2)}°${lo<0?'W':'E'}`;
+async function placeName(la,lo){
+ if(geoOn&&window.ghostop&&window.ghostop.reverseGeocode){
+  try{const name=await window.ghostop.reverseGeocode(la,lo);if(name)return name}
+  catch(e){console.warn('Online place lookup unavailable; falling back to GPS coordinates.',e);geoOn=false;try{localStorage.setItem('ys-geo','offline')}catch{};$('#geo').textContent='Place names: offline';swap(msg,'Online lookup unavailable — using offline GPS coordinates')}
+ }
+ return coordName(la,lo)
+}
+async function locate(){
+ const withG=tiles.filter(t=>t.gps).sort((a,b)=>a.when-b.when),cl=[];
+ for(const t of withG){const la=t.gps.latitude,lo=t.gps.longitude;let best=null,bd=1e9;
+  for(const c of cl){const d=hav(c.lat,c.lon,la,lo);if(d<bd){bd=d;best=c}}
+  if(best&&bd<10){best.items.push(t);const n=best.items.length;best.lat+=(la-best.lat)/n;best.lon+=(lo-best.lon)/n}else cl.push({lat:la,lon:lo,items:[t]})}
+ let i=0;for(const c of cl){msg.textContent=`Naming places… ${++i} of ${cl.length}`;const nm=await placeName(c.lat,c.lon);c.items.forEach(t=>t.base=nm)}
+ const located=withG.filter(t=>t.base);let inferred=0,none=0;
+ for(const t of tiles){if(t.base)continue;
+  let lo=0,hi=located.length;while(lo<hi){const m=(lo+hi)>>1;located[m].when<t.when?lo=m+1:hi=m}
+  const n=[located[lo-1],located[lo]].filter(Boolean).sort((x,y)=>Math.abs(x.when-t.when)-Math.abs(y.when-t.when))[0];
+  if(n&&Math.abs(n.when-t.when)<=72e5){t.base=n.base;inferred++}else{t.base=NOLOC;none++}}
+ const by=new Map();tiles.forEach(t=>{if(!by.has(t.base))by.set(t.base,[]);by.get(t.base).push(t)});
+ for(const [name,arr] of by){arr.sort((a,b)=>a.when-b.when);const visits=[[]];
+  arr.forEach((t,k)=>{if(k&&t.when-arr[k-1].when>45*864e5)visits.push([]);visits[visits.length-1].push(t)});
+  visits.forEach(v=>{const lab=visits.length>1&&name!==NOLOC?`${name} · ${new Date(v[0].when).toLocaleString('en',{month:'short',year:'numeric'})}`:name;v.forEach(t=>t.locName=lab)})}
+ locInfo=`${fmt(withG.length)} of ${fmt(tiles.length)} had GPS${inferred?`, ${fmt(inferred)} placed by capture time`:''}${none?`, ${fmt(none)} have no location`:''}.${geoOn?' Place names © OpenStreetMap contributors.':' Offline coordinate labels.'}`;
+}
+
+/* duplicates + schedule the sort animation */
+function plan(now){
+ N=tiles.length;
+ if(!N){phase='idle';pill.classList.remove('run');swap(msg,'Couldn’t read any files');syncBtn();return}
+ const seen=new Set(),near=[];
+ [...tiles].sort((a,b)=>a.file.lastModified-b.file.lastModified).forEach(t=>{
+  const nd=t.fe.hash&&t.fe.uni>.1&&!t.vid;let dup=seen.has(t.sig);
+  if(!dup&&nd)dup=near.some(o=>Math.abs(o.w/o.h-t.w/t.h)<.05&&pc(o.fe.hash[0]^t.fe.hash[0])+pc(o.fe.hash[1]^t.fe.hash[1])<=3);
+  if(dup)t.dup=1;else{seen.add(t.sig);if(nd)near.push(t)}});
+ const locF=new Map();
+ if(mode==='loc'){const by=new Map();tiles.forEach(t=>{if(t.dup)return;if(!by.has(t.locName))by.set(t.locName,[]);by.get(t.locName).push(t)});
+  [...by.entries()].sort((a,b)=>((a[0]===NOLOC)-(b[0]===NOLOC))||Math.min(...a[1].map(t=>t.when))-Math.min(...b[1].map(t=>t.when))).forEach(([n],i,a)=>locF.set(n,addLoc(n,i<Math.ceil(a.length/2)?'#pg':'#vg')))}
+ tiles.forEach((t,i)=>{
+  t.f=t.dup?dupF:mode==='loc'?locF.get(t.locName):contentFolder(t.cat,t.vid);
+  const lt=t.dup?SORTD()*(.5+rnd()*.45):(1-i/N)*SORTD()*.92+rnd()*.35*K;
+  t.L=now+1.0*K+lt;t.fd=(.6+rnd()*.35)*K});
+ TS=now;phase='sort';swap(msg,mode==='loc'?'Sorting into places…':'Sorting into folders…');swap(capEl,'sorting…');
+}
+const SORTD=()=>clamp(N/220,3,9)*K;
+
+/* ---------- animation ---------- */
+function geo(f){
+ const r=f.r=f.el.getBoundingClientRect();
+ if(f.loc){f.ts=24;f.cols=Math.max(3,Math.floor((r.width-24+5)/29));f.cap=f.cols*Math.max(1,Math.floor((r.height-46+5)/29))}
+ else if(f.vid){const ts=clamp((r.width-24)/9,12,21);f.ts=ts;f.cols=Math.max(3,Math.floor((r.width-24+4)/(ts+4)));f.cap=f.cols*Math.max(1,Math.floor((r.height-46+4)/(ts+4)))}
+ else{const ts=f.dup?24:26;f.ts=ts;f.cols=Math.max(3,Math.floor((r.width-24+5)/(ts+5)));f.cap=f.cols}}
+const slotPos=(f,i)=>{const ts=f.ts,gp=f.vid?4:5;return{x:f.r.left+12+ts/2+(i%f.cols)*(ts+gp),y:f.r.top+42+ts/2+((i/f.cols)|0)*(ts+gp)}};
+function dT(sp,x,y,s,r,a){g.globalAlpha=a;const c=Math.cos(r)*D,n=Math.sin(r)*D;g.setTransform(c,n,-n,c,x*D,y*D);g.drawImage(sp,-s/2,-s/2,s,s)}
+const ease=p=>1-Math.pow(1-p,3),ease2=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+
+function frame(){
+ requestAnimationFrame(frame);
+ g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);
+ if(phase==='idle')return;
+ const now=(performance.now()-T0)/1000;
+ const sr=stage.getBoundingClientRect(),cx=sr.left+sr.width/2,cy=sr.top+sr.height*.47;
+ const R=clamp(Math.min(sr.width*.44,sr.height*.4),90,215),Sz=clamp(R*.21,22,44);
+ folders.forEach(geo);
+ sp=tiles.length;
+ if(phase==='collect'&&allIn&&now>=inAt+1.5*K){if(mode==='loc'){phase='geo';locate().catch(console.error).then(()=>plan((performance.now()-T0)/1000))}else plan(now)}
+ if(phase==='sort'||phase==='done'||phase==='apply'||phase==='applied')folders.forEach((f,i)=>{if(!f.shown&&now>=TS+i*Math.min(.055,.9/folders.length)*K){f.shown=1;f.el.classList.add('on')}});
+
+ for(const t of tiles){
+  const f=t.f;
+  if(!t.lau&&now>=t.L){t.lau=1;t.i=f.asg++;t.vid?S.v++:S.p++;if(f.asg===1)S.f++;if(f.dup)S.d++}
+  if(t.lau&&!t.land&&now>=t.L+t.fd){t.land=1;landed++;f.got++;f.slots[t.i%f.cap]={sp:t.sp,t:now};f.nEl.textContent=f.got}}
+ paintStats();
+
+ folders.forEach(f=>f.slots.forEach((s,i)=>{if(!s||i>=f.cap)return;const p=slotPos(f,i);dT(s.sp,p.x,p.y,f.ts*(1+.35*Math.max(0,1-(now-s.t)/.28)),0,1)}));
+ for(let i=0;i<sp;i++){const t=tiles[i];if(t.lau)continue;
+  const p=Math.min(1,(now-t.ts)/t.du),e=ease(p);
+  dT(t.sp,cx+(t.sx+(t.px-t.sx)*e)*R,cy+(t.sy+(t.py-t.sy)*e)*R,Sz*(.55+.45*e),t.rot*(.3+.7*e)+(1-e)*1.2,.2+.8*Math.min(1,p*1.6))}
+ for(const t of tiles){if(!t.lau||t.land)continue;
+  const e=ease2(clamp((now-t.L)/t.fd,0,1)),f=t.f,d=slotPos(f,t.i%f.cap),x0=cx+t.px*R,y0=cy+t.py*R,
+   mx=(x0+d.x)/2+t.rot*70,my=(y0+d.y)/2-50+Math.abs(d.x-x0)*.08,u=1-e;
+  dT(t.sp,u*u*x0+2*u*e*mx+e*e*d.x,u*u*y0+2*u*e*my+e*e*d.y,Sz+(f.ts-Sz)*e,t.rot*u,1)}
+ g.globalAlpha=1;
+
+ if(phase==='sort'&&landed===N){
+  phase='done';doneAt=now;pill.classList.remove('run');pill.classList.add('ok');
+  swap(msg,'Done, everything’s sorted');swap(capEl,'perfectly tidy');fl.classList.add('bright');sl.textContent='Sort again';syncBtn()}
+ if(phase==='done'&&!ovl&&now>=doneAt+1.8*K){ovl=1;
+  openEnd(`${fmt(N)} files.`,mode==='loc'?'Sorted by place.':aiHits?'Sorted with AI.':'Sorted in seconds.',dirH?['apply','again','back']:['zip','again','back'],
+   (mode==='loc'?locInfo+' ':'')+(dirH?(mode==='loc'?'Nothing has moved yet. “Move files into folders” creates one folder per place plus _Duplicates, and you can undo it.':'Nothing has moved yet. “Move files into folders” creates Photos, Videos and _Duplicates inside your folder, and you can undo it.'):'This browser can’t change your folder directly, so you can download the sorted result as a ZIP instead.'))}
+}
+
+/* ---------- closing card ---------- */
+function openEnd(a,b,show,note){
+ ['apply','zip','undo','again','back'].forEach(id=>$('#'+id).hidden=!show.includes(id));
+ acts.classList.remove('on');sub.classList.remove('on');sub.textContent=note||'';
+ end.classList.add('on');const my=++tok,s=a+'\n'+b;let k=0;
+ const paint=()=>{const [l1,l2='']=s.slice(0,k).split('\n'),i=l2.indexOf(' '),h=i>0?`<em>${l2.slice(0,i)}</em>${l2.slice(i)}`:l2?`<em>${l2}</em>`:'';big.innerHTML=l1+(k>a.length?'<br>':'')+h+'<span class="caret"></span>'};
+ const tick=()=>{if(my!==tok)return;paint();if(k<s.length){k++;setTimeout(tick,k===a.length+1?380:RM?10:55)}else{acts.classList.add('on');sub.classList.add('on');const f=acts.querySelector('.btn:not([hidden])');f&&f.focus({preventScroll:true})}};
+ tick();
+}
+
+/* ---------- run / reset ---------- */
+function reset(){
+ phase='idle';tok++;tiles=[];sp=landed=ovl=allIn=skipped=0;N=0;mkFolders();
+ for(const k in S)S[k]=0;paintStats();
+ folders.forEach(f=>{f.got=f.asg=f.shown=0;f.slots=[];f.nEl.textContent=0;f.el.classList.remove('on')});
+ end.classList.remove('on');acts.classList.remove('on');big.innerHTML='';
+ fl.classList.remove('bright');pill.className='pill';sl.textContent='Sort';syncBtn();
+}
+async function start(){
+ if(!entries.length||busy())return;
+ const keep=entries;reset();entries=keep;
+ phase='collect';pill.classList.add('run');syncBtn();aiHits=0;
+
+ if(mode==='content'&&aiOn&&!ai.ready){try{await loadAI()}catch(err){console.error(err);msg.textContent='AI model unavailable — using built-in rules';await new Promise(r=>setTimeout(r,1600))}}
+ T0=performance.now();
+ swap(msg,mode==='loc'?'Reading photo locations…':ai.ready&&aiOn?'Looking at each photo with AI…':'Reading photos & videos from your folder…');swap(capEl,'gathering everything…');
+ let idx=0;
+ const worker=async()=>{while(idx<entries.length){const e=entries[idx++];try{await analyze(e)}catch{skipped++}if(idx%10===0){msg.textContent=`Reading… ${fmt(Math.min(idx,entries.length))} of ${fmt(entries.length)}`;await new Promise(r=>setTimeout(r,0))}}};
+ await Promise.all([...Array(mode==='loc'||aiOn?1:2)].map(worker));
+ allIn=1;inAt=(performance.now()-T0)/1000;
+}
+btn.onclick=start;
+$('#again').onclick=()=>{const keep=entries;reset();entries=keep;syncBtn();setTimeout(start,350)};
+$('#back').onclick=()=>end.classList.remove('on');
+addEventListener('keydown',e=>{if(e.key==='Escape')end.classList.remove('on')});
+
+/* ---------- native disk operations via the isolated Electron bridge ---------- */
+async function apply(){
+ phase='apply';syncBtn();end.classList.remove('on');pill.classList.remove('ok');pill.classList.add('run');log=[];let i=0,fail=0;
+ for(const t of tiles){
+  const rel=destPath(t),to=await window.ghostop.moveFile(dirH,t.e.path,rel,t.e.name).catch(()=>null);
+  if(to)log.push({from:t.e.path,path:rel,to});else fail++;
+  if(++i%5===0||i===N)msg.textContent=`Moving files… ${fmt(i)} of ${fmt(N)}`;
+ }
+ await window.ghostop.writeSortLog(dirH,log).catch(()=>{});
+ pill.classList.remove('run');pill.classList.add('ok');phase='applied';entries=[];syncBtn();
+ swap(msg,fail?`Moved ${fmt(log.length)}, ${fail} couldn’t be moved`:'Done, files moved into folders');
+ openEnd(`${fmt(log.length)} files moved.`,'Sorted on disk.',['undo','back'],'A record of every move is saved in _sort-log.json inside the folder.')}
+async function undo(){
+ phase='apply';syncBtn();end.classList.remove('on');pill.classList.remove('ok');pill.classList.add('run');let i=0,restored=0;
+ for(const r of log.slice().reverse()){
+  const ok=await window.ghostop.undoMove(dirH,r.path,r.to,r.from).catch(()=>false);if(ok)restored++;
+  if(++i%5===0)msg.textContent=`Putting files back… ${fmt(i)} of ${fmt(log.length)}`;
+ }
+ await window.ghostop.removeSortLog(dirH).catch(()=>{});
+ const n=restored;log=[];phase='applied';entries=await listDir(dirH);pill.classList.remove('run');pill.classList.add('ok');syncBtn();
+ swap(msg,'Everything’s back where it was');openEnd(`${fmt(n)} files restored.`,'Back where they were.',['again','back'])}
+async function zip(){
+ if(!window.JSZip)return swap(msg,'ZIP library didn’t load — check your connection');
+ end.classList.remove('on');pill.classList.add('run');pill.classList.remove('ok');
+ const z=new JSZip();
+ for(const t of tiles){const file=t.e.getFile?await t.e.getFile():t.file;z.file(`${destPath(t).join('/')}/${t.e.name}`,file)}
+ const blob=await z.generateAsync({type:'blob',compression:'STORE'},m=>{msg.textContent=`Zipping… ${m.percent|0}%`});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${$('#fn').textContent}-sorted.zip`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4e4);
+ pill.classList.remove('run');pill.classList.add('ok');swap(msg,'ZIP downloaded');openEnd('ZIP ready.','Sorted and saved.',['again','back'])}
+$('#apply').onclick=apply;$('#undo').onclick=undo;$('#zip').onclick=zip;
+
+function syncAct(){const a=phase==='done'?(dirH?'apply':'zip'):phase==='applied'&&log.length?'undo':null,b=$('#act');b.hidden=!a;if(a){b.dataset.a=a;b.textContent=a==='apply'?'Move files into folders':a==='zip'?'Download sorted ZIP':'Undo move'}}
+$('#act').onclick=()=>{const f={apply,zip,undo}[$('#act').dataset.a];f&&f()};
+function applyMode(){const loc=mode==='loc';document.querySelector('main').classList.toggle('loc',loc);$('#plab').textContent=loc?'Places':'Photos';$('#ai').hidden=loc;$('#geo').hidden=!loc;$('#mode').textContent='Sort by: '+(loc?'Location':'Content');$('#geo').textContent='Place names: '+(geoOn?'online':'offline');swap(capEl,entries.length?'a total mess':'choose a folder to sort')}
+$('#mode').onclick=()=>{if(busy())return;mode=mode==='loc'?'content':'loc';try{localStorage.setItem('ys-mode',mode)}catch{}const keep=entries;reset();entries=keep;applyMode();syncBtn()};
+$('#geo').onclick=()=>{if(busy())return;geoOn=!geoOn;try{localStorage.setItem('ys-geo',geoOn?'online':'offline')}catch{};$('#geo').textContent='Place names: '+(geoOn?'online':'offline');swap(msg,geoOn?'Online place names enabled. GPS coordinates will be sent to OpenStreetMap during location sorting.':'Offline mode: GPS coordinates stay on this PC')};
+$('#win-min').onclick=()=>window.ghostop.windowAction('minimize');
+$('#win-max').onclick=()=>window.ghostop.windowAction('toggleMaximize');
+$('#win-close').onclick=()=>window.ghostop.windowAction('close');
+applyMode();reset();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
